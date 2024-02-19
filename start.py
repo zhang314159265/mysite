@@ -23,16 +23,31 @@ class MyHTTPRequestHandler(http_server.SimpleHTTPRequestHandler):
             return self.reply(f"Unsupported pattern {pattern}")
         
         grep_out = subprocess.check_output(
-            f"grep -Ir {pattern} repos/{repo}".split()).decode()
+            f"grep -Inr {pattern} repos/{repo}".split()).decode()
 
         lines = grep_out.splitlines()
 
         LIM = 1000
+        trimed = False
         if len(lines) > LIM:
-            lines = lines[:LIM] + ["......"]
+            lines = lines[:LIM]
+            trimed = True
 
-        self.reply(f"Response contains {len(lines)} lines") # report number of lines after potential trimming
-        self.reply("\n".join(lines))
+        self.reply("<html><body>\n")
+        self.reply(f"<p>Response contains {len(lines)} lines</p>\n") # report number of lines after potential trimming
+        file_prefix = f"repos/{repo}/"
+        for line in lines:
+            comps = line.split(":", 2)
+            assert len(comps) == 3
+            file, lno, matched_line = comps
+            assert file.startswith(file_prefix) 
+            file = file[len(file_prefix):]
+            others = matched_line.split(pattern)
+            rendered_matched_line = f"<span style='color:red;'>{pattern}</span>".join(others)
+            self.reply(f"<p><span style='background-color:DodgerBlue;'>{file}</span>:{lno}: {rendered_matched_line}</p>\n")
+        if trimed:
+            self.reply("<p>......</p>\n")
+        self.reply("</body></html>\n")
 
     def notify_get_not_implemented(self):
         self.send_response(HTTPStatus.OK)
